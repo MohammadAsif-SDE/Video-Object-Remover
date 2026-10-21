@@ -368,8 +368,3 @@ proxy, persistent database, task queue, or multi-user access control.
   render remain predictable.
 - When changing request models, update both the API implementation and the corresponding controls
   in `static/index.html`.
-
-## License
-
-No project-wide license has been declared yet. Add a license before distributing the project
-publicly.
