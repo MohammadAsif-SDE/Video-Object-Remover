@@ -1,0 +1,1146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Video Object Remover</title>
+<style>
+  :root {
+    --bg:#f4f5f7; --surface:#fff; --surface-2:#f8f9fb; --border:#e4e7ec; --border-strong:#d0d5dd;
+    --fg:#101828; --fg-2:#344054; --muted:#667085;
+    --accent:#4f46e5; --accent-hover:#4338ca; --accent-soft:#eef2ff; --ring:rgba(79,70,229,.22);
+    --danger:#d92d20; --danger-soft:#fef3f2; --success:#079455; --success-soft:#ecfdf3;
+    --stage:#e9ebef;
+    --shadow:0 1px 2px rgba(16,24,40,.05), 0 1px 3px rgba(16,24,40,.06);
+    --radius:14px; --header-h:60px;
+  }
+  * { box-sizing:border-box; }
+  html, body { height:100%; }
+  body { margin:0; font:14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif; background:var(--bg); color:var(--fg); -webkit-font-smoothing:antialiased; }
+  button, input, select { font:inherit; color:inherit; }
+  .hidden { display:none !important; }
+  svg.i { width:18px; height:18px; flex:none; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+
+  /* ---------- header ---------- */
+  .topbar { height:var(--header-h); display:flex; align-items:center; gap:20px; padding:0 20px; background:var(--surface); border-bottom:1px solid var(--border); }
+  .brand { display:flex; align-items:center; gap:10px; min-width:0; }
+  .logo { width:34px; height:34px; border-radius:10px; background:linear-gradient(135deg,#6366f1,#8b5cf6); color:#fff; display:grid; place-items:center; box-shadow:0 2px 6px rgba(99,102,241,.35); flex:none; }
+  .brand-name { font-weight:700; font-size:15px; letter-spacing:-.01em; white-space:nowrap; }
+  .brand-sub { font-size:12px; color:var(--muted); white-space:nowrap; }
+  .steps { list-style:none; margin:0 auto; padding:0; display:flex; align-items:center; gap:6px; }
+  .steps li { display:flex; align-items:center; gap:8px; font-size:13px; font-weight:500; color:var(--muted); white-space:nowrap; }
+  .steps li + li::before { content:""; width:28px; height:1px; background:var(--border-strong); margin-right:6px; }
+  .steps .dot { width:22px; height:22px; border-radius:50%; display:grid; place-items:center; font-size:11.5px; font-weight:700; background:var(--surface-2); border:1px solid var(--border-strong); color:var(--muted); transition:.2s; }
+  .steps li.active { color:var(--fg); }
+  .steps li.active .dot { background:var(--accent); border-color:var(--accent); color:#fff; box-shadow:0 0 0 4px var(--ring); }
+  .steps li.done .dot { background:var(--success-soft); border-color:#abefc6; color:var(--success); }
+
+  /* ---------- layout ---------- */
+  .layout { display:grid; grid-template-columns:minmax(0,1fr) 360px; gap:16px; padding:16px; height:calc(100vh - var(--header-h)); height:calc(100dvh - var(--header-h)); max-width:1680px; margin:0 auto; }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); min-width:0; min-height:0; }
+  .workspace, .sidebar { display:flex; flex-direction:column; overflow:hidden; }
+
+  /* ---------- buttons & controls ---------- */
+  .btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; height:36px; padding:0 14px; border-radius:9px; border:1px solid var(--border-strong); background:var(--surface); color:var(--fg-2); font-weight:600; font-size:13.5px; cursor:pointer; text-decoration:none; white-space:nowrap; transition:background .15s, border-color .15s, box-shadow .15s, color .15s; }
+  .btn:hover:not(:disabled) { background:var(--surface-2); color:var(--fg); }
+  .btn:focus-visible, .icon-btn:focus-visible, .seg button:focus-visible { outline:none; box-shadow:0 0 0 4px var(--ring); }
+  .btn:disabled { opacity:.45; cursor:not-allowed; }
+  .btn.ghost { border-color:transparent; background:transparent; }
+  .btn.ghost:hover:not(:disabled) { background:var(--surface-2); }
+  .btn.primary { background:var(--accent); border-color:var(--accent); color:#fff; box-shadow:0 1px 2px rgba(79,70,229,.3); }
+  .btn.primary:hover:not(:disabled) { background:var(--accent-hover); color:#fff; }
+  .btn.success { background:var(--success); border-color:var(--success); color:#fff; }
+  .btn.success:hover { background:#067647; color:#fff; }
+  .btn.danger { color:var(--danger); border-color:#fecdca; }
+  .btn.danger:hover:not(:disabled) { background:var(--danger-soft); color:var(--danger); }
+  .btn.block { width:100%; height:44px; font-size:14.5px; border-radius:10px; }
+
+  .seg { display:inline-flex; padding:3px; background:var(--surface-2); border:1px solid var(--border); border-radius:10px; gap:2px; }
+  .seg button { display:inline-flex; align-items:center; justify-content:center; gap:6px; height:30px; padding:0 12px; border:0; border-radius:7px; background:transparent; color:var(--muted); font-weight:600; font-size:13px; cursor:pointer; transition:.15s; white-space:nowrap; }
+  .seg button svg.i { width:16px; height:16px; }
+  .seg button:hover:not(:disabled) { color:var(--fg); }
+  .seg button:disabled { opacity:.45; cursor:not-allowed; }
+  .seg button.active { background:var(--surface); color:var(--fg); box-shadow:var(--shadow); }
+  .seg-full { display:flex; }
+  .seg-full button { flex:1; }
+
+  .switch { display:inline-flex; align-items:center; gap:8px; cursor:pointer; user-select:none; font-weight:600; font-size:13px; color:var(--fg-2); position:relative; }
+  .switch input { position:absolute; opacity:0; width:0; height:0; }
+  .switch .track { width:34px; height:20px; border-radius:99px; background:var(--border-strong); position:relative; transition:.2s; flex:none; }
+  .switch .track::after { content:""; position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:50%; background:#fff; box-shadow:0 1px 2px rgba(16,24,40,.25); transition:.2s; }
+  .switch input:checked + .track { background:var(--accent); }
+  .switch input:checked + .track::after { transform:translateX(14px); }
+  .switch input:focus-visible + .track { box-shadow:0 0 0 4px var(--ring); }
+
+  input[type=range] { -webkit-appearance:none; appearance:none; width:100%; height:20px; margin:0; background:transparent; cursor:pointer; --p:0%; }
+  input[type=range]:disabled { cursor:not-allowed; opacity:.5; }
+  input[type=range]::-webkit-slider-runnable-track { height:6px; border-radius:99px; background:linear-gradient(to right, var(--accent) var(--p), var(--border) var(--p)); }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:16px; height:16px; margin-top:-5px; border-radius:50%; background:#fff; border:2px solid var(--accent); box-shadow:0 1px 3px rgba(16,24,40,.2); transition:box-shadow .15s; }
+  input[type=range]::-moz-range-track { height:6px; border-radius:99px; background:var(--border); }
+  input[type=range]::-moz-range-progress { height:6px; border-radius:99px; background:var(--accent); }
+  input[type=range]::-moz-range-thumb { width:12px; height:12px; border-radius:50%; background:#fff; border:2px solid var(--accent); }
+  input[type=range]:focus { outline:none; }
+  input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow:0 0 0 4px var(--ring); }
+
+  /* ---------- workspace ---------- */
+  .toolbar { display:flex; align-items:center; gap:10px; padding:10px 14px; border-bottom:1px solid var(--border); flex-wrap:wrap; min-height:57px; }
+  .tool-group { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .spacer { flex:1; }
+  .toolbar-title { font-weight:600; color:var(--fg-2); font-size:13.5px; }
+
+  .stage { position:relative; flex:1; min-height:0; display:flex; align-items:center; justify-content:center; overflow:hidden; isolation:isolate;
+    background-color:var(--stage); background-image:radial-gradient(rgba(16,24,40,.08) 1px, transparent 1px); background-size:16px 16px; }
+  #canvas { display:block; border-radius:6px; box-shadow:0 6px 20px rgba(16,24,40,.14); touch-action:none; cursor:crosshair; background:#000; position:relative; z-index:1; }
+  #player { position:absolute; inset:0; width:100%; height:100%; opacity:0; pointer-events:none; z-index:0; }
+  #result { display:block; position:relative; z-index:1; border-radius:6px; background:#000; box-shadow:0 6px 20px rgba(16,24,40,.14); }
+
+  .empty { position:absolute; inset:20px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; text-align:center; padding:20px;
+    border:2px dashed var(--border-strong); border-radius:16px; background:rgba(255,255,255,.65); cursor:pointer; transition:border-color .15s, background .15s; z-index:2; }
+  .empty:hover { border-color:var(--accent); background:rgba(255,255,255,.9); }
+  .empty .icon { width:60px; height:60px; border-radius:18px; background:var(--accent-soft); color:var(--accent); display:grid; place-items:center; margin-bottom:6px; }
+  .empty .icon svg { width:28px; height:28px; }
+  .empty h3 { margin:0; font-size:18px; letter-spacing:-.01em; }
+  .empty p { margin:0; color:var(--muted); }
+  .empty .btn { margin-top:8px; }
+  .empty .formats { font-size:12px; color:var(--muted); margin-top:6px; }
+
+  .stage-msg { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; color:var(--muted); text-align:center; padding:24px; z-index:2; }
+  .spinner { width:14px; height:14px; border-radius:50%; border:2px solid var(--border-strong); border-top-color:var(--accent); animation:spin .8s linear infinite; flex:none; }
+  .stage-msg .spinner { width:28px; height:28px; border-width:3px; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  .pill { position:absolute; top:14px; z-index:3; display:inline-flex; align-items:center; gap:7px; height:28px; padding:0 12px; border-radius:99px; font-size:12px; font-weight:600;
+    background:rgba(255,255,255,.94); color:var(--fg-2); border:1px solid var(--border); box-shadow:0 2px 6px rgba(16,24,40,.12); backdrop-filter:blur(6px); white-space:nowrap; }
+  .pill-tl { left:14px; }
+  .pill-tr { right:14px; }
+  .pill.live::before, .pill.ok::before { content:""; width:7px; height:7px; border-radius:50%; background:var(--success); box-shadow:0 0 0 3px rgba(7,148,85,.18); }
+  .pill.ok { color:var(--success); }
+  .pill.err { color:var(--danger); border-color:#fecdca; cursor:pointer; }
+  button.pill { font:inherit; font-size:12px; font-weight:600; cursor:default; }
+  button.pill.err { cursor:pointer; }
+
+  .drop-overlay { position:fixed; inset:0; z-index:50; background:rgba(79,70,229,.08); backdrop-filter:blur(2px); display:flex; align-items:center; justify-content:center; padding:24px; pointer-events:none; }
+  .drop-overlay > div { border:2px dashed var(--accent); border-radius:18px; background:rgba(255,255,255,.95); padding:40px 56px; display:flex; flex-direction:column; align-items:center; gap:10px; color:var(--accent); font-size:16px; box-shadow:0 20px 40px rgba(16,24,40,.12); }
+  .drop-overlay svg.i { width:32px; height:32px; }
+
+  .transport { display:flex; align-items:center; gap:6px; padding:10px 14px; border-top:1px solid var(--border); background:var(--surface); }
+  .icon-btn { width:36px; height:36px; display:grid; place-items:center; border:0; border-radius:9px; background:transparent; color:var(--fg-2); cursor:pointer; flex:none; transition:.15s; }
+  .icon-btn:hover:not(:disabled) { background:var(--surface-2); color:var(--fg); }
+  .icon-btn:disabled { opacity:.4; cursor:not-allowed; }
+  .icon-btn.play { width:40px; height:40px; border-radius:50%; background:var(--accent); color:#fff; box-shadow:0 2px 6px rgba(79,70,229,.35); }
+  .icon-btn.play:hover:not(:disabled) { background:var(--accent-hover); color:#fff; }
+  .time { font-variant-numeric:tabular-nums; font-size:12.5px; color:var(--muted); min-width:60px; text-align:center; flex:none; }
+  .scrub-wrap { flex:1; min-width:60px; display:flex; flex-direction:column; gap:4px; padding-top:9px; }
+  #coverage { display:block; width:100%; height:5px; }
+  .range-btns { display:flex; gap:4px; flex:none; }
+  .chip-btn { height:28px; padding:0 9px; border-radius:7px; border:1px solid var(--border); background:var(--surface); color:var(--fg-2); font-size:12px; font-weight:600; cursor:pointer; white-space:nowrap; font-variant-numeric:tabular-nums; }
+  .chip-btn:hover:not(:disabled) { background:var(--surface-2); color:var(--fg); }
+  .chip-btn.set { border-color:#a7f3d0; background:#ecfdf5; color:#047857; }
+  .chip-btn:disabled { opacity:.45; cursor:not-allowed; }
+  .frame-chip { font-size:12px; font-weight:600; color:var(--fg-2); background:var(--surface-2); border:1px solid var(--border); border-radius:6px; padding:2px 8px; font-variant-numeric:tabular-nums; white-space:nowrap; flex:none; }
+
+  /* ---------- sidebar ---------- */
+  .sidebar-body { flex:1; overflow-y:auto; padding:4px 18px 18px; }
+  .group { padding:16px 0; }
+  .group + .group { border-top:1px solid var(--border); }
+  .group h2 { margin:0 0 12px; font-size:13px; font-weight:700; color:var(--fg); }
+  .options { display:grid; gap:8px; }
+  .option { display:flex; gap:12px; padding:11px 12px; border:1px solid var(--border); border-radius:10px; cursor:pointer; transition:border-color .15s, background .15s, box-shadow .15s; }
+  .option:hover { border-color:var(--border-strong); }
+  .option input { appearance:none; -webkit-appearance:none; width:16px; height:16px; margin:2px 0 0; border:1.5px solid var(--border-strong); border-radius:50%; flex:none; background:#fff; transition:.15s; cursor:pointer; }
+  .option input:checked { border:5px solid var(--accent); }
+  .option input:focus-visible { outline:none; box-shadow:0 0 0 4px var(--ring); }
+  .option:has(input:checked) { border-color:var(--accent); background:var(--accent-soft); box-shadow:inset 0 0 0 1px var(--accent); }
+  .option-title { display:flex; align-items:center; gap:8px; font-weight:600; font-size:13.5px; }
+  .option-desc { display:block; font-size:12.5px; color:var(--muted); margin-top:2px; line-height:1.45; }
+  .badge { font-size:10.5px; font-weight:700; padding:1px 7px; border-radius:99px; background:var(--success-soft); color:var(--success); }
+  .field { margin-top:16px; }
+  .group > .field:first-of-type { margin-top:0; }
+  .field-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
+  .field-label { font-size:13px; font-weight:600; color:var(--fg-2); }
+  .field > .field-label { display:block; margin-bottom:8px; }
+  .value { font-size:12px; font-weight:600; color:var(--accent); background:var(--accent-soft); padding:1px 8px; border-radius:6px; font-variant-numeric:tabular-nums; }
+  .field-help { font-size:12px; color:var(--muted); margin-top:4px; }
+
+  .sidebar-foot { padding:16px 18px 18px; border-top:1px solid var(--border); background:var(--surface-2); display:grid; gap:10px; }
+  .status { font-size:13px; color:var(--muted); min-height:20px; }
+  .status.error { color:var(--danger); }
+  .status.ok { color:var(--success); font-weight:600; }
+  .progress-wrap { display:flex; align-items:center; gap:10px; }
+  .progress { flex:1; height:8px; border-radius:99px; background:var(--border); overflow:hidden; }
+  .progress > div { height:100%; width:0; background:linear-gradient(90deg,#6366f1,#8b5cf6); border-radius:99px; transition:width .3s; }
+  #pct { font-size:12px; font-weight:700; font-variant-numeric:tabular-nums; color:var(--fg-2); min-width:36px; text-align:right; }
+
+  @media (max-width: 1000px) {
+    .layout { grid-template-columns:1fr; height:auto; }
+    .stage { flex:none; height:62vh; min-height:320px; }
+    .steps { display:none; }
+    .topbar { justify-content:space-between; }
+  }
+  @media (max-width: 560px) {
+    .brand-sub, #durLabel, .frame-chip, #timeLabel { display:none; }
+    .layout { padding:10px; gap:10px; }
+    .topbar { padding:0 12px; }
+    .seg button .lbl { display:none; }
+  }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-play" viewBox="0 0 24 24"><polygon points="7 4 20 12 7 20 7 4" fill="currentColor" /></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" rx="1" fill="currentColor" /><rect x="14" y="4" width="4" height="16" rx="1" fill="currentColor" /></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><polygon points="19 20 9 12 19 4 19 20" /><line x1="5" y1="19" x2="5" y2="5" /></symbol>
+  <symbol id="i-fwd" viewBox="0 0 24 24"><polygon points="5 4 15 12 5 20 5 4" /><line x1="19" y1="5" x2="19" y2="19" /></symbol>
+  <symbol id="i-vol" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" /><path d="M15.5 8.5a5 5 0 0 1 0 7" /><path d="M19 5a10 10 0 0 1 0 14" /></symbol>
+  <symbol id="i-mute" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" /><line x1="22" y1="9" x2="16" y2="15" /><line x1="16" y1="9" x2="22" y2="15" /></symbol>
+  <symbol id="i-lasso" viewBox="0 0 24 24"><path d="M7 22a5 5 0 0 1-2-4" /><path d="M3.3 14A6.8 6.8 0 0 1 2 10c0-4.4 4.5-8 10-8s10 3.6 10 8-4.5 8-10 8a12 12 0 0 1-5-1" /><circle cx="5" cy="16" r="2" /></symbol>
+  <symbol id="i-rect" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2" stroke-dasharray="3 3" /></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></symbol>
+  <symbol id="i-film" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="3" /><path d="M10 9l5 3-5 3z" fill="currentColor" /></symbol>
+  <symbol id="i-split" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" /><line x1="12" y1="3" x2="12" y2="21" /></symbol>
+  <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M12 3l1.9 5.8L20 11l-6.1 2.2L12 19l-1.9-5.8L4 11l6.1-2.2z" /><path d="M19 3v4" /><path d="M21 5h-4" /></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></symbol>
+</svg>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="logo"><svg class="i"><use href="#i-sparkles" /></svg></div>
+    <div>
+      <div class="brand-name">Video Object Remover</div>
+      <div class="brand-sub">Erase objects, logos and watermarks — runs locally</div>
+    </div>
+  </div>
+  <ol class="steps" id="steps">
+    <li data-step="import"><span class="dot">1</span>Import video</li>
+    <li data-step="select"><span class="dot">2</span>Select object</li>
+    <li data-step="export"><span class="dot">3</span>Remove &amp; export</li>
+  </ol>
+  <button id="newVideo" class="btn hidden"><svg class="i"><use href="#i-upload" /></svg>New video</button>
+  <input id="file" type="file" accept="video/*" hidden />
+</header>
+
+<main class="layout">
+  <section class="workspace card">
+    <div class="toolbar">
+      <div class="seg hidden" id="viewTabs" role="tablist" aria-label="View">
+        <button type="button" role="tab" data-view="editor" class="active">Editor</button>
+        <button type="button" role="tab" data-view="result">Result</button>
+      </div>
+      <span id="toolbarTitle" class="toolbar-title">Preview</span>
+      <div class="tool-group" id="editTools">
+        <div class="seg" role="radiogroup" aria-label="Selection tool">
+          <button type="button" class="active" data-tool="lasso" title="Freehand lasso (L)"><svg class="i"><use href="#i-lasso" /></svg><span class="lbl">Lasso</span></button>
+          <button type="button" data-tool="rect" title="Rectangle (R)"><svg class="i"><use href="#i-rect" /></svg><span class="lbl">Rectangle</span></button>
+        </div>
+        <button id="clear" class="btn ghost" title="Clear selection (Esc)" disabled><svg class="i"><use href="#i-trash" /></svg><span class="lbl">Clear</span></button>
+      </div>
+      <div class="spacer"></div>
+      <div class="tool-group" id="previewTools">
+        <label class="switch" title="Show the removal on the video while it plays"><input id="showPreview" type="checkbox" checked /><span class="track"></span>Live preview</label>
+        <button id="compare" class="btn" title="Press and hold to see the original" disabled><svg class="i"><use href="#i-split" /></svg><span class="lbl">Hold to compare</span></button>
+      </div>
+    </div>
+
+    <div class="stage" id="stage">
+      <div id="empty" class="empty" role="button" tabindex="0" aria-label="Import a video">
+        <div class="icon"><svg class="i"><use href="#i-film" /></svg></div>
+        <h3>Drop a video to get started</h3>
+        <p>Drag a file anywhere onto this window</p>
+        <span class="btn primary"><svg class="i"><use href="#i-upload" /></svg>Browse files</span>
+        <div class="formats">MP4, MOV or WebM · nothing leaves your machine</div>
+      </div>
+      <div id="stageMsg" class="stage-msg hidden"><div class="spinner"></div><div id="stageMsgText">Loading video…</div></div>
+      <video id="player" playsinline preload="auto"></video>
+      <canvas id="canvas" class="hidden"></canvas>
+      <video id="result" class="hidden" controls playsinline></video>
+      <div id="modePill" class="pill pill-tl hidden"></div>
+      <button id="uploadPill" class="pill pill-tr hidden" type="button"></button>
+    </div>
+
+    <div class="transport hidden" id="transport">
+      <button id="stepBack" class="icon-btn" title="Previous frame (←) · Shift+← jumps 1s"><svg class="i"><use href="#i-back" /></svg></button>
+      <button id="play" class="icon-btn play" title="Play / pause (Space)"><svg class="i"><use href="#i-play" /></svg></button>
+      <button id="stepFwd" class="icon-btn" title="Next frame (→) · Shift+→ jumps 1s"><svg class="i"><use href="#i-fwd" /></svg></button>
+      <span class="time" id="timeLabel">0:00.00</span>
+      <div class="scrub-wrap">
+        <input id="scrub" type="range" min="0" max="0" step="any" value="0" aria-label="Seek" />
+        <canvas id="coverage" title="Green: frames the object will be removed from"></canvas>
+      </div>
+      <span class="time" id="durLabel">0:00.00</span>
+      <span class="frame-chip" id="frameLabel">Frame —</span>
+      <div class="range-btns">
+        <button id="setIn" class="chip-btn" title="Only remove from this frame on (I)">[ In</button>
+        <button id="setOut" class="chip-btn" title="Only remove up to this frame (O)">Out ]</button>
+        <button id="clearRange" class="chip-btn hidden" title="Remove across the whole video">✕</button>
+      </div>
+      <button id="mute" class="icon-btn" title="Mute"><svg class="i"><use href="#i-vol" /></svg></button>
+    </div>
+  </section>
+
+  <aside class="sidebar card">
+    <div class="sidebar-body">
+      <section class="group">
+        <h2>Fill method</h2>
+        <div class="options" role="radiogroup" aria-label="Fill method">
+          <label class="option"><input type="radio" name="mode" value="stretch" checked /><span>
+            <span class="option-title">Stretch <span class="badge">Recommended</span></span>
+            <span class="option-desc">Smears the surrounding pixels across the area. Seamless on most footage.</span></span></label>
+          <label class="option"><input type="radio" name="mode" value="inpaint" /><span>
+            <span class="option-title">Inpaint</span>
+            <span class="option-desc">Reconstructs the background from the edges. Good on plain backgrounds.</span></span></label>
+          <label class="option"><input type="radio" name="mode" value="blur" /><span>
+            <span class="option-title">Blur</span>
+            <span class="option-desc">Classic censor blur over the area.</span></span></label>
+        </div>
+        <div id="directionWrap" class="field">
+          <div class="field-label">Stretch direction</div>
+          <div class="seg seg-full" id="direction" role="radiogroup" aria-label="Stretch direction">
+            <button type="button" data-value="horizontal" class="active">↔ Horizontal</button>
+            <button type="button" data-value="vertical">↕ Vertical</button>
+            <button type="button" data-value="both">Both</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="group">
+        <h2>What are you removing?</h2>
+        <div class="options" role="radiogroup" aria-label="Object type">
+          <label class="option"><input type="radio" name="track" value="moving" checked /><span>
+            <span class="option-title">Moving object</span>
+            <span class="option-desc">Followed through the video and removed wherever it's found. People, arrows, stickers.</span></span></label>
+          <label class="option"><input type="radio" name="track" value="fixed" /><span>
+            <span class="option-title">Fixed watermark or caption</span>
+            <span class="option-desc">The same spot is filled in every frame. Logos, captions, timestamps.</span></span></label>
+        </div>
+      </section>
+
+      <section class="group">
+        <h2>Fine-tune</h2>
+        <div class="field">
+          <div class="field-row"><span class="field-label">Edge feather</span><span class="value" id="featherVal">20 px</span></div>
+          <input id="feather" type="range" min="0" max="80" value="20" />
+          <div class="field-help">Grows the area past your selection. Increase if you see a halo.</div>
+        </div>
+        <div class="field">
+          <div class="field-row"><span class="field-label">Softness</span><span class="value" id="blurVal">41</span></div>
+          <input id="blur" type="range" min="5" max="151" step="2" value="41" />
+          <div class="field-help">Smoothing inside the filled area.</div>
+        </div>
+      </section>
+    </div>
+
+    <div class="sidebar-foot">
+      <div id="progressWrap" class="progress-wrap hidden"><div class="progress"><div id="bar"></div></div><span id="pct">0%</span></div>
+      <div id="status" class="status" role="status">Import a video to begin.</div>
+      <button id="go" class="btn primary block" disabled><svg class="i"><use href="#i-sparkles" /></svg>Remove object</button>
+      <button id="cancel" class="btn danger block hidden"><svg class="i"><use href="#i-x" /></svg>Cancel</button>
+      <a id="download" class="btn success block hidden" download="object_removed.mp4"><svg class="i"><use href="#i-download" /></svg>Download MP4</a>
+    </div>
+  </aside>
+</main>
+
+<div id="dropOverlay" class="drop-overlay hidden"><div><svg class="i"><use href="#i-upload" /></svg><strong>Drop to import video</strong></div></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const canvas = $("canvas"), ctx = canvas.getContext("2d");
+const player = $("player"), stage = $("stage"), resultVideo = $("result"), scrub = $("scrub");
+// Small scratch canvas the fill is computed on, so the big display canvas never has to be read back.
+const work = document.createElement("canvas"), wctx = work.getContext("2d", { willReadFrequently: true });
+
+const state = {
+  file: null, url: null,
+  server: null,           // /api/upload response: {video_id, width, height, fps, frames, frame}
+  uploading: false, uploadProgress: 0, uploadError: null, xhr: null,
+  playable: null,         // false => the browser can't decode this file; fall back to server-rendered frames
+  stillImg: null, stillIndex: 0,
+};
+let W = 0, H = 0;               // native video size == canvas backing size
+let points = [], pointsVersion = 0, drawing = false, tool = "lasso", rectStart = null;
+let comparing = false, direction = "horizontal";
+const maskCache = new Map();    // key -> mask for one placement of the selection
+let drawFrame = 0;              // frame the selection was drawn on
+let track = null;               // {key, id, status, stage, progress, error, box0, boxes, runs}
+let trackTimer = null;
+let rangeIn = null, rangeOut = null;  // optional In/Out frames limiting the removal
+let exact = null, exactTimer = null, exactToken = 0, exactPending = false;
+let jobStage = null;
+let jobId = null, jobProgress = 0, jobStartFrame = 0, pollTimer = null, resultReady = false, view = "editor";
+let statusOverride = null, looping = false, lastLoopTime = -1, scrubbing = false, stillToken = 0;
+
+const opt = {
+  get mode() { return document.querySelector("input[name=mode]:checked").value; },
+  get track() { return document.querySelector("input[name=track]:checked").value; },
+  get feather() { return +$("feather").value; },
+  get blur() { return +$("blur").value; },
+  get preview() { return $("showPreview").checked; },
+};
+const fps = () => state.server?.fps || 30;
+const frameCount = () => state.server?.frames || Math.max(1, Math.round((player.duration || 0) * fps()));
+const isPaused = () => state.playable === false || player.paused;
+function currentFrame() {
+  if (state.playable === false) return state.stillIndex;
+  return Math.max(0, Math.min(Math.floor(player.currentTime * fps() + 0.01), frameCount() - 1));
+}
+
+// ---------- import ----------
+function openPicker() { if (!jobId) $("file").click(); }
+$("file").addEventListener("change", (e) => { const f = e.target.files[0]; e.target.value = ""; if (f) importFile(f); });
+$("empty").addEventListener("click", openPicker);
+$("empty").addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openPicker(); } });
+$("newVideo").addEventListener("click", openPicker);
+
+// Accept drops anywhere, so a file dropped outside the drop zone never navigates away from the app.
+let dragDepth = 0;
+const hasFiles = (e) => [...(e.dataTransfer?.types || [])].includes("Files");
+const showDrop = (on) => $("dropOverlay").classList.toggle("hidden", !on);
+window.addEventListener("dragenter", (e) => { if (!hasFiles(e)) return; e.preventDefault(); dragDepth++; if (!jobId) showDrop(true); });
+window.addEventListener("dragover", (e) => { if (hasFiles(e)) e.preventDefault(); });
+window.addEventListener("dragleave", (e) => { if (hasFiles(e) && --dragDepth <= 0) { dragDepth = 0; showDrop(false); } });
+window.addEventListener("drop", (e) => {
+  if (!hasFiles(e)) return;
+  e.preventDefault(); dragDepth = 0; showDrop(false);
+  const f = [...e.dataTransfer.files].find((f) => f.type.startsWith("video/") || /\.(mp4|m4v|mov|webm|mkv|avi)$/i.test(f.name));
+  if (!f) return setStatus("That file isn't a video.", "error");
+  if (jobId) return setStatus("Wait for the current job to finish (or cancel it) first.", "error");
+  importFile(f);
+});
+
+function importFile(file) {
+  state.xhr?.abort();
+  player.pause();
+  const oldUrl = state.url;
+  Object.assign(state, { file, url: URL.createObjectURL(file), server: null, uploading: true, uploadProgress: 0,
+    uploadError: null, xhr: null, playable: null, stillImg: null, stillIndex: 0 });
+  // The browser plays the local file directly; the upload to the server runs in the background.
+  player.src = state.url;
+  if (oldUrl) URL.revokeObjectURL(oldUrl);
+  stopTracking();
+  W = H = 0; points = []; pointsVersion++; maskCache.clear(); exact = null;
+  rangeIn = rangeOut = null; resultReady = false; statusOverride = null;
+  resultVideo.removeAttribute("src"); resultVideo.load();
+  canvas.classList.add("hidden");
+  showStageMsg("Loading video…");
+  setView("editor");
+  startUpload(file);
+}
+
+function startUpload(file) {
+  const xhr = new XMLHttpRequest();
+  state.xhr = xhr; state.uploading = true; state.uploadError = null; state.uploadProgress = 0;
+  xhr.open("POST", "/api/upload");
+  xhr.upload.onprogress = (e) => { if (e.lengthComputable) { state.uploadProgress = e.loaded / e.total; syncUI(); } };
+  xhr.onload = () => {
+    if (state.xhr !== xhr) return;
+    state.xhr = null; state.uploading = false;
+    let j = null; try { j = JSON.parse(xhr.responseText); } catch {}
+    if (xhr.status >= 300 || !j) {
+      const d = j && j.detail;
+      state.uploadError = d ? (typeof d === "string" ? d : JSON.stringify(d)) : (xhr.statusText || "Upload failed");
+      if (state.playable === false) showStageMsg("Upload failed — this video can't be previewed.", true);
+      return syncUI();
+    }
+    onUploaded(j);
+  };
+  xhr.onerror = () => {
+    if (state.xhr !== xhr) return;
+    state.xhr = null; state.uploading = false; state.uploadError = "Network error";
+    syncUI();
+  };
+  const fd = new FormData(); fd.append("file", file); xhr.send(fd);
+  syncUI();
+}
+$("uploadPill").addEventListener("click", () => { if (state.uploadError && state.file) startUpload(state.file); });
+
+async function onUploaded(meta) {
+  state.server = meta;
+  if (state.playable === false) {
+    setDims(meta.width, meta.height);
+    state.stillImg = await loadImage(meta.frame);
+    state.stillIndex = 0;
+    render();
+  }
+  if (points.length >= 3) startTracking();
+  syncTransport(); drawCoverage(); scheduleExact(); syncUI();
+}
+
+// ---------- local playback ----------
+player.addEventListener("loadedmetadata", () => {
+  if (!player.videoWidth) return useStillFrames();
+  state.playable = true;
+  setDims(player.videoWidth, player.videoHeight);
+  syncTransport(); syncUI();
+});
+player.addEventListener("error", () => { if (state.file && state.playable !== true) useStillFrames(); });
+player.addEventListener("loadeddata", render);
+player.addEventListener("play", () => {
+  exact = null;
+  if (!looping) { looping = true; lastLoopTime = -1; requestAnimationFrame(loop); }
+  syncTransport();
+});
+player.addEventListener("pause", () => { render(); syncTransport(); scheduleExact(); });
+player.addEventListener("seeked", () => { render(); syncTransport(); scheduleExact(); });
+
+function loop() {
+  if (player.paused || player.ended) { looping = false; render(); syncTransport(); return; }
+  if (player.currentTime !== lastLoopTime) { lastLoopTime = player.currentTime; render(); syncTransport(); }
+  requestAnimationFrame(loop);
+}
+
+function useStillFrames() {
+  if (state.playable === false) return;
+  state.playable = false;
+  if (state.server) onUploaded(state.server);
+  else showStageMsg("This format can't play in the browser. Frames will appear when the upload finishes.");
+  syncUI();
+}
+
+function togglePlay() {
+  if (state.playable !== true || view !== "editor") return;
+  if (player.paused || player.ended) { if (player.ended) player.currentTime = 0; player.play().catch(() => {}); }
+  else player.pause();
+}
+function stepFrames(n) {
+  if (!W) return;
+  const f = Math.max(0, Math.min(currentFrame() + n, frameCount() - 1));
+  if (state.playable === false) return seekStill(f);
+  player.pause();
+  player.currentTime = (f + 0.5) / fps(); // middle of the frame, so rounding never lands on a neighbour
+}
+async function seekStill(i) {
+  if (!state.server) return;
+  state.stillIndex = i; exact = null; syncTransport();
+  const token = ++stillToken;
+  const r = await fetch(`/api/frame/${state.server.video_id}?index=${i}`);
+  if (!r.ok || token !== stillToken) return;
+  const img = await loadImage((await r.json()).frame);
+  if (token !== stillToken) return;
+  state.stillImg = img; render(); scheduleExact();
+}
+
+$("play").addEventListener("click", togglePlay);
+$("stepBack").addEventListener("click", () => stepFrames(-1));
+$("stepFwd").addEventListener("click", () => stepFrames(1));
+$("mute").addEventListener("click", () => { player.muted = !player.muted; syncTransport(); });
+scrub.addEventListener("pointerdown", () => { scrubbing = true; });
+window.addEventListener("pointerup", () => { scrubbing = false; });
+scrub.addEventListener("input", () => {
+  paintRange(scrub);
+  if (state.playable === false) return seekStill(Math.round(+scrub.value));
+  player.pause(); player.currentTime = +scrub.value;
+});
+
+function syncTransport() {
+  const still = state.playable === false;
+  if (still) { scrub.max = Math.max(frameCount() - 1, 0); scrub.step = 1; }
+  else { scrub.max = player.duration || 0; scrub.step = "any"; }
+  if (!scrubbing) scrub.value = still ? state.stillIndex : player.currentTime;
+  paintRange(scrub);
+  const t = still ? state.stillIndex / fps() : player.currentTime;
+  const dur = still ? frameCount() / fps() : player.duration || 0;
+  $("timeLabel").textContent = fmtTime(t);
+  $("durLabel").textContent = fmtTime(dur);
+  $("frameLabel").textContent = state.server ? `Frame ${currentFrame()}` : "Frame —";
+  const playing = !still && !player.paused && !player.ended;
+  $("play").querySelector("use").setAttribute("href", playing ? "#i-pause" : "#i-play");
+  $("play").title = playing ? "Pause (Space)" : "Play (Space)";
+  $("play").disabled = still;
+  $("mute").querySelector("use").setAttribute("href", player.muted ? "#i-mute" : "#i-vol");
+  $("mute").disabled = still;
+}
+
+// ---------- canvas sizing ----------
+function setDims(w, h) {
+  W = w; H = h; canvas.width = w; canvas.height = h; maskCache.clear();
+  hideStageMsg();
+  canvas.classList.toggle("hidden", view !== "editor");
+  fit();
+}
+function fit() {
+  if (!W) return;
+  const pad = 20;
+  const s = Math.min((stage.clientWidth - pad * 2) / W, (stage.clientHeight - pad * 2) / H);
+  for (const el of [canvas, resultVideo]) {
+    el.style.width = `${Math.max(1, Math.floor(W * s))}px`;
+    el.style.height = `${Math.max(1, Math.floor(H * s))}px`;
+  }
+  drawCoverage();
+  render();
+}
+new ResizeObserver(fit).observe(stage);
+
+function showStageMsg(text, isError) {
+  $("stageMsgText").textContent = text;
+  $("stageMsg").querySelector(".spinner").classList.toggle("hidden", !!isError);
+  $("stageMsg").classList.remove("hidden");
+}
+function hideStageMsg() { $("stageMsg").classList.add("hidden"); }
+
+// ---------- rendering ----------
+const showingFill = () => opt.preview && !comparing && !drawing && points.length >= 3;
+const fillKey = () => [pointsVersion, opt.mode, direction, opt.feather, opt.blur].join("|");
+const inRange = (f) => (rangeIn === null || f >= rangeIn) && (rangeOut === null || f <= rangeOut);
+const tracking = () => opt.track === "moving";
+const trackDone = () => tracking() && track && track.status === "done";
+
+// Where the selection sits in frame f (canvas pixels), or null where nothing gets removed.
+function selectionAt(f) {
+  if (points.length < 3 || !inRange(f)) return null;
+  if (!trackDone()) return { key: "drawn", pts: points };
+  const b = track.boxes[f];
+  if (!b) return null;
+  const b0 = track.box0, kx = W / state.server.width, ky = H / state.server.height;
+  const sx = b[2] / b0[2], sy = b[3] / b0[3];
+  return { key: b.join(","), pts: points.map(([x, y]) => [(b[0] + (x / kx - b0[0]) * sx) * kx, (b[1] + (y / ky - b0[1]) * sy) * ky]) };
+}
+const exactValid = (sel) => exact && sel && exact.key === fillKey() + sel.key && exact.frame === currentFrame() && isPaused();
+
+function render() {
+  if (!W || view !== "editor") return;
+  const src = state.playable === false ? state.stillImg : (player.readyState >= 2 ? player : null);
+  if (!src) return;
+  const sel = drawing ? null : selectionAt(currentFrame());
+  const fill = showingFill() && !!sel;
+  const ex = fill && exactValid(sel) ? exact.img : null;
+  ctx.drawImage(ex || src, 0, 0, W, H);
+  if (fill && !ex) applyFill(src, sel);
+  drawSelection(fill, drawing ? points : sel && sel.pts);
+  syncPill(fill, !!ex, sel);
+}
+
+function drawSelection(filled, pts) {
+  if (!pts || pts.length < 2) return;
+  if (filled && !isPaused()) return; // keep playback clean so the removal is easy to judge
+  const s = W / (canvas.clientWidth || W); // one CSS pixel in video pixels
+  const closed = !drawing || tool === "rect";
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(pts[0][0], pts[0][1]);
+  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+  if (closed) ctx.closePath();
+  if (!filled && closed) { ctx.fillStyle = "rgba(79,70,229,0.22)"; ctx.fill(); }
+  ctx.globalAlpha = filled ? 0.55 : 1;
+  ctx.lineJoin = "round";
+  ctx.lineWidth = 3 * s; ctx.strokeStyle = "rgba(16,24,40,0.55)"; ctx.stroke();
+  ctx.lineWidth = 1.5 * s; ctx.strokeStyle = "#fff"; ctx.setLineDash([6 * s, 4 * s]); ctx.stroke();
+  ctx.restore();
+}
+
+const STAGES = { starting: "Starting", analyzing: "Analysing video", tracking: "Tracking object", rendering: "Rendering video" };
+const stageText = (j) => `${STAGES[j.stage] || "Working"}… ${Math.round((j.progress || 0) * 100)}%`;
+
+function syncPill(fill, isExact, sel) {
+  let text = "", cls = "pill pill-tl";
+  const f = currentFrame();
+  if (comparing) text = "Original";
+  else if (drawing) text = "Selecting…";
+  else if (points.length < 3) text = "";
+  else if (!opt.preview) text = "Preview off";
+  else if (!inRange(f)) text = "Outside the In/Out range";
+  else if (tracking() && track && track.status === "running") text = stageText(track);
+  else if (!sel) text = "Object not in this frame";
+  else if (fill) {
+    const following = trackDone() ? " · following object" : "";
+    if (isExact) { text = "Exact preview"; cls += " ok"; }
+    else if (opt.mode === "inpaint") text = exactPending ? "Rendering exact preview…" : "Approximate preview · pause for exact";
+    else { text = `Live preview${following}`; cls += " live"; }
+  }
+  const pill = $("modePill");
+  if (pill.textContent !== text) pill.textContent = text;
+  if (pill.className !== cls) pill.className = cls;
+  pill.classList.toggle("hidden", !text);
+}
+
+// ---------- live fill (JS port of remover.fill_region, applied every frame) ----------
+const odd = (n) => (n % 2 ? n : n + 1);
+// Box radius for a 3-pass box blur that approximates cv2.GaussianBlur with this kernel size.
+function gaussRadius(ksize) {
+  const sigma = 0.3 * ((odd(ksize) - 1) * 0.5 - 1) + 0.8;
+  return Math.max(0, Math.round((Math.sqrt(4 * sigma * sigma + 1) - 1) / 2));
+}
+function boxPass(a, b, w, h, c, r, vertical) {
+  const lines = vertical ? w : h, len = vertical ? h : w;
+  const step = (vertical ? w : 1) * c, lineStep = (vertical ? 1 : w) * c, n = 2 * r + 1;
+  for (let i = 0; i < lines; i++) {
+    for (let ch = 0; ch < c; ch++) {
+      const base = i * lineStep + ch;
+      let s = 0;
+      for (let k = -r; k <= r; k++) s += a[base + Math.min(Math.max(k, 0), len - 1) * step];
+      for (let j = 0; j < len; j++) {
+        b[base + j * step] = s / n;
+        s += a[base + Math.min(j + r + 1, len - 1) * step] - a[base + Math.max(j - r, 0) * step];
+      }
+    }
+  }
+}
+function blur(a, w, h, c, rx, ry, passes = 3) {
+  let x = a.slice(), y = new Float32Array(a.length);
+  for (let p = 0; p < passes; p++) {
+    if (rx > 0) { boxPass(x, y, w, h, c, rx, false); [x, y] = [y, x]; }
+    if (ry > 0) { boxPass(x, y, w, h, c, ry, true); [x, y] = [y, x]; }
+  }
+  return x;
+}
+// For each masked pixel, interpolate between the nearest unmasked pixels on either side of its row (or column).
+function stretch(src, m, w, h, vertical, out) {
+  const lines = vertical ? w : h, len = vertical ? h : w;
+  const step = vertical ? w : 1, lineStep = vertical ? 1 : w;
+  const L = new Int32Array(len), R = new Int32Array(len);
+  for (let i = 0; i < lines; i++) {
+    const base = i * lineStep;
+    let last = -1;
+    for (let j = 0; j < len; j++) { if (!m[base + j * step]) last = j; L[j] = last; }
+    last = len;
+    for (let j = len - 1; j >= 0; j--) { if (!m[base + j * step]) last = j; R[j] = last; }
+    for (let j = 0; j < len; j++) {
+      const p = base + j * step;
+      if (!m[p]) continue;
+      const hl = L[j] >= 0, hr = R[j] < len;
+      if (!hl && !hr) continue;
+      const a = hl ? L[j] : R[j], b = hr ? R[j] : L[j];
+      const t = b === a ? 0 : (j - a) / (b - a);
+      const pa = (base + a * step) * 3, pb = (base + b * step) * 3, o = p * 3;
+      out[o] = src[pa] + (src[pb] - src[pa]) * t;
+      out[o + 1] = src[pa + 1] + (src[pb + 1] - src[pa + 1]) * t;
+      out[o + 2] = src[pa + 2] + (src[pb + 2] - src[pa + 2]) * t;
+    }
+  }
+}
+
+function getMask(sel) {
+  if (!sel || !W) return null;
+  const key = [fillKey(), sel.key, W, H].join("|");
+  const hit = maskCache.get(key);
+  if (hit) return hit;
+  const points = sel.pts;
+  const f = opt.feather, k = odd(opt.blur), mode = opt.mode;
+  const pad = f + 8 + (mode === "stretch" ? 8 : (k >> 1) + 4);
+  const xs = points.map((p) => p[0]), ys = points.map((p) => p[1]);
+  const x0 = Math.max(0, Math.floor(Math.min(...xs) - pad)), y0 = Math.max(0, Math.floor(Math.min(...ys) - pad));
+  const x1 = Math.min(W, Math.ceil(Math.max(...xs) + pad)), y1 = Math.min(H, Math.ceil(Math.max(...ys) + pad));
+  const w = x1 - x0, h = y1 - y0;
+  if (w <= 0 || h <= 0) return null;
+  const mc = document.createElement("canvas"); mc.width = w; mc.height = h;
+  const g = mc.getContext("2d", { willReadFrequently: true });
+  g.translate(-x0, -y0);
+  g.beginPath(); g.moveTo(points[0][0], points[0][1]);
+  for (let i = 1; i < points.length; i++) g.lineTo(points[i][0], points[i][1]);
+  g.closePath(); g.fillStyle = "#fff"; g.fill();
+  if (f > 0) { g.lineWidth = 2 * f; g.lineJoin = "round"; g.strokeStyle = "#fff"; g.stroke(); } // ≈ cv2.dilate
+  const a = g.getImageData(0, 0, w, h).data;
+  const m = new Uint8Array(w * h), mf = new Float32Array(w * h);
+  for (let i = 0; i < m.length; i++) { m[i] = a[i * 4 + 3] >= 128 ? 1 : 0; mf[i] = m[i]; }
+  const r = gaussRadius(mode === "stretch" ? 9 : k);
+  const alpha = blur(mf, w, h, 1, r, r);
+  if (mode === "inpaint") for (let i = 0; i < alpha.length; i++) alpha[i] *= 0.4;
+  const M = { x0, y0, w, h, m, alpha };
+  maskCache.set(key, M);
+  if (maskCache.size > 120) maskCache.delete(maskCache.keys().next().value);
+  return M;
+}
+
+function applyFill(source, sel) {
+  const M = getMask(sel);
+  if (!M) return;
+  const { x0, y0, w, h, m, alpha } = M, n = w * h, mode = opt.mode;
+  if (work.width !== w || work.height !== h) { work.width = w; work.height = h; }
+  const k = source === player ? 1 : (source.naturalWidth || W) / W; // server stills may be downscaled
+  wctx.drawImage(source, x0 * k, y0 * k, w * k, h * k, 0, 0, w, h);
+  const img = wctx.getImageData(0, 0, w, h), d = img.data;
+  const src = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) { src[i * 3] = d[i * 4]; src[i * 3 + 1] = d[i * 4 + 1]; src[i * 3 + 2] = d[i * 4 + 2]; }
+
+  let base, soft;
+  if (mode === "blur") {
+    base = src;
+    const r = gaussRadius(opt.blur);
+    soft = blur(src, w, h, 3, r, r);
+  } else {
+    // Inpaint (Telea) has no cheap JS equivalent; approximate it with a two-way stretch while playing.
+    const dir = mode === "inpaint" ? "both" : direction;
+    const sample = blur(src, w, h, 3, 1, 1, 1);
+    if (dir === "both") {
+      const fh = src.slice(), fv = src.slice();
+      stretch(sample, m, w, h, false, fh); stretch(sample, m, w, h, true, fv);
+      base = fh; for (let i = 0; i < base.length; i++) base[i] = (fh[i] + fv[i]) * 0.5;
+    } else {
+      base = src.slice(); stretch(sample, m, w, h, dir === "vertical", base);
+    }
+    if (mode === "stretch") {
+      const r = gaussRadius(Math.max(opt.blur >> 2, 1)); // smooth across the streaks only
+      soft = blur(base, w, h, 3, dir === "horizontal" ? 0 : r, dir === "vertical" ? 0 : r);
+    } else {
+      const r = gaussRadius(opt.blur);
+      soft = blur(base, w, h, 3, r, r);
+    }
+  }
+  for (let i = 0; i < n; i++) {
+    const t = alpha[i], o = i * 3, p = i * 4;
+    d[p] = base[o] + (soft[o] - base[o]) * t;
+    d[p + 1] = base[o + 1] + (soft[o + 1] - base[o + 1]) * t;
+    d[p + 2] = base[o + 2] + (soft[o + 2] - base[o + 2]) * t;
+  }
+  wctx.putImageData(img, 0, 0);
+  ctx.drawImage(work, x0, y0);
+}
+
+// Inpaint can't be reproduced in the browser, so when paused, ask the server for the exact frame.
+function scheduleExact() {
+  clearTimeout(exactTimer);
+  const sel = selectionAt(currentFrame());
+  if (!(state.server && sel && opt.mode === "inpaint" && showingFill() && isPaused()) || exactValid(sel)) return;
+  exactTimer = setTimeout(fetchExact, 200);
+}
+async function fetchExact() {
+  const sel = selectionAt(currentFrame());
+  if (!sel) return;
+  const token = ++exactToken, key = fillKey() + sel.key, body = fillOptions(sel.pts, currentFrame());
+  exactPending = true; render();
+  try {
+    const r = await fetch("/api/preview", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    if (!r.ok) throw new Error(await errText(r));
+    const img = await loadImage((await r.json()).frame);
+    if (token === exactToken) exact = { key, frame: body.start_frame, img };
+  } catch (e) {
+    console.warn("Exact preview failed:", e);
+  } finally {
+    if (token === exactToken) { exactPending = false; render(); }
+  }
+}
+
+// ---------- selection ----------
+function setTool(t) {
+  tool = t;
+  document.querySelectorAll("[data-tool]").forEach((b) => b.classList.toggle("active", b.dataset.tool === t));
+}
+document.querySelectorAll("[data-tool]").forEach((b) => b.addEventListener("click", () => setTool(b.dataset.tool)));
+
+function canvasPoint(e) {
+  const rect = canvas.getBoundingClientRect();
+  const x = (e.clientX - rect.left) * W / rect.width, y = (e.clientY - rect.top) * H / rect.height;
+  return [Math.min(Math.max(x, 0), W), Math.min(Math.max(y, 0), H)];
+}
+const rectPoints = (a, b) => [[a[0], a[1]], [b[0], a[1]], [b[0], b[1]], [a[0], b[1]]];
+
+canvas.addEventListener("pointerdown", (e) => {
+  if (!W || e.button !== 0) return;
+  player.pause();
+  drawing = true;
+  const p = canvasPoint(e);
+  if (tool === "rect") { rectStart = p; points = rectPoints(p, p); } else points = [p];
+  canvas.setPointerCapture(e.pointerId);
+  render();
+});
+canvas.addEventListener("pointermove", (e) => {
+  if (!drawing) return;
+  const p = canvasPoint(e);
+  if (tool === "rect") { points = rectPoints(rectStart, p); return render(); }
+  const last = points[points.length - 1];
+  if (Math.hypot(p[0] - last[0], p[1] - last[1]) >= 2) { points.push(p); render(); }
+});
+function endStroke() {
+  if (!drawing) return;
+  drawing = false;
+  const xs = points.map((p) => p[0]), ys = points.map((p) => p[1]);
+  const tiny = Math.max(...xs) - Math.min(...xs) < 3 || Math.max(...ys) - Math.min(...ys) < 3;
+  if (points.length < 3 || tiny) points = [];
+  pointsVersion++; maskCache.clear(); exact = null; statusOverride = null;
+  drawFrame = currentFrame();
+  startTracking();
+  render(); drawCoverage(); scheduleExact(); syncUI();
+}
+canvas.addEventListener("pointerup", endStroke);
+canvas.addEventListener("pointercancel", endStroke);
+
+function clearSelection() {
+  if (!points.length) return;
+  points = []; pointsVersion++; maskCache.clear(); exact = null; statusOverride = null;
+  stopTracking();
+  render(); drawCoverage(); syncUI();
+}
+$("clear").addEventListener("click", clearSelection);
+
+const cmp = $("compare");
+cmp.addEventListener("pointerdown", (e) => { if (cmp.disabled) return; comparing = true; cmp.setPointerCapture(e.pointerId); render(); });
+const endCompare = () => { if (comparing) { comparing = false; render(); } };
+["pointerup", "pointercancel", "lostpointercapture"].forEach((ev) => cmp.addEventListener(ev, endCompare));
+
+// ---------- options ----------
+function onParamsChange() { maskCache.clear(); exact = null; render(); scheduleExact(); }
+document.querySelectorAll("input[name=track]").forEach((r) => r.addEventListener("change", () => {
+  if (tracking()) startTracking(); else stopTracking();
+  maskCache.clear(); exact = null; render(); drawCoverage(); scheduleExact(); syncUI();
+}));
+document.querySelectorAll("input[name=mode]").forEach((r) => r.addEventListener("change", () => {
+  $("directionWrap").classList.toggle("hidden", opt.mode !== "stretch");
+  onParamsChange();
+}));
+$("direction").querySelectorAll("button").forEach((b) => b.addEventListener("click", () => {
+  direction = b.dataset.value;
+  $("direction").querySelectorAll("button").forEach((x) => x.classList.toggle("active", x === b));
+  onParamsChange();
+}));
+$("feather").addEventListener("input", (e) => { $("featherVal").textContent = `${e.target.value} px`; paintRange(e.target); onParamsChange(); });
+$("blur").addEventListener("input", (e) => { $("blurVal").textContent = e.target.value; paintRange(e.target); onParamsChange(); });
+$("showPreview").addEventListener("change", () => { render(); scheduleExact(); syncUI(); });
+
+// Points are in the browser's decoded size; scale in case the server reports a different one.
+function toServer(pts) {
+  const sx = state.server.width / W, sy = state.server.height / H;
+  return pts.map(([x, y]) => [Math.round(x * sx * 10) / 10, Math.round(y * sy * 10) / 10]);
+}
+function fillOptions(pts, frame) {
+  return {
+    video_id: state.server.video_id,
+    points: toServer(pts),
+    start_frame: frame,
+    mode: opt.mode,
+    direction,
+    feather_px: opt.feather,
+    blur_ksize: opt.blur,
+  };
+}
+
+// ---------- tracking ----------
+const trackKey = () => `${state.server?.video_id}|${pointsVersion}|${drawFrame}`;
+
+// Follow the selection through the video on the server, so the live preview (and the export)
+// move with the object. Restarted whenever the selection changes.
+async function startTracking() {
+  stopTracking();
+  if (!state.server || points.length < 3 || !tracking()) return;
+  const t = track = { key: trackKey(), id: null, status: "running", stage: "starting", progress: 0 };
+  syncUI();
+  try {
+    const r = await fetch("/api/track", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ video_id: state.server.video_id, points: toServer(points), start_frame: drawFrame }) });
+    if (r.status === 404 && (await errText(r)) === "Not Found") {
+      throw new Error("the server is running an older version of the app. Restart it (Ctrl+C, then python app.py) and reload this page.");
+    }
+    if (!r.ok) throw new Error(await errText(r));
+    t.id = (await r.json()).job_id;
+    if (track !== t) { fetch(`/api/cancel/${t.id}`, { method: "POST" }); return; }
+    pollTrack(t);
+  } catch (e) {
+    if (track === t) { t.status = "error"; t.error = e.message; syncUI(); render(); }
+  }
+}
+function stopTracking() {
+  clearTimeout(trackTimer);
+  if (track && track.status === "running" && track.id) fetch(`/api/cancel/${track.id}`, { method: "POST" });
+  track = null;
+}
+async function pollTrack(t) {
+  if (track !== t) return;
+  try {
+    const j = await (await fetch(`/api/status/${t.id}`)).json();
+    if (track !== t) return;
+    Object.assign(t, { stage: j.stage, progress: j.progress });
+    if (j.status === "running") { syncUI(); render(); trackTimer = setTimeout(() => pollTrack(t), 300); return; }
+    if (j.status !== "done") { t.status = j.status; t.error = j.error; syncUI(); render(); return; }
+    const res = await (await fetch(`/api/track/${t.id}`)).json();
+    if (track !== t) return;
+    Object.assign(t, { status: "done", box0: res.box0, boxes: res.boxes, runs: runsOf(res.boxes) });
+    maskCache.clear(); exact = null;
+    drawCoverage(); render(); scheduleExact(); syncUI();
+  } catch {
+    if (track === t) trackTimer = setTimeout(() => pollTrack(t), 1000);
+  }
+}
+function runsOf(boxes) {
+  const runs = [];
+  boxes.forEach((b, i) => {
+    if (!b) return;
+    const last = runs[runs.length - 1];
+    if (last && last[1] === i - 1) last[1] = i; else runs.push([i, i]);
+  });
+  return runs;
+}
+
+// Green strip under the seek bar: the frames the object will be removed from.
+function drawCoverage() {
+  const c = $("coverage"), dpr = window.devicePixelRatio || 1;
+  const cw = c.clientWidth, ch = c.clientHeight;
+  if (!cw) return;
+  c.width = Math.round(cw * dpr); c.height = Math.round(ch * dpr);
+  const g = c.getContext("2d");
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, cw, ch);
+  const n = frameCount();
+  if (!state.file || points.length < 3 || n < 1) return;
+  const inset = 8, span = cw - inset * 2;  // align with the slider thumb's travel
+  const x = (f) => inset + span * f / Math.max(n - 1, 1);
+  g.fillStyle = "#e4e7ec";
+  g.fillRect(inset, 0, span, ch);
+  const pending = tracking() && !trackDone();
+  let runs = trackDone() ? track.runs : [[0, n - 1]];
+  const lo = rangeIn ?? 0, hi = rangeOut ?? n - 1;
+  runs = runs.map(([a, b]) => [Math.max(a, lo), Math.min(b, hi)]).filter(([a, b]) => b >= a);
+  g.fillStyle = pending ? "#a7f3d0" : "#10b981";
+  if (pending) runs = [[drawFrame, drawFrame]].filter(([a]) => a >= lo && a <= hi);
+  for (const [a, b] of runs) g.fillRect(x(a) - 1, 0, Math.max(x(b) - x(a), 0) + 2, ch);
+}
+
+function onRangeChange() {
+  exact = null;
+  $("setIn").classList.toggle("set", rangeIn !== null);
+  $("setOut").classList.toggle("set", rangeOut !== null);
+  $("setIn").textContent = rangeIn === null ? "[ In" : `[ ${rangeIn}`;
+  $("setOut").textContent = rangeOut === null ? "Out ]" : `${rangeOut} ]`;
+  $("clearRange").classList.toggle("hidden", rangeIn === null && rangeOut === null);
+  drawCoverage(); render(); scheduleExact(); syncUI();
+}
+function setIn() { if (!W) return; const f = currentFrame(); rangeIn = f; if (rangeOut !== null && rangeOut < f) rangeOut = null; onRangeChange(); }
+function setOut() { if (!W) return; const f = currentFrame(); rangeOut = f; if (rangeIn !== null && rangeIn > f) rangeIn = null; onRangeChange(); }
+$("setIn").addEventListener("click", setIn);
+$("setOut").addEventListener("click", setOut);
+$("clearRange").addEventListener("click", () => { rangeIn = rangeOut = null; onRangeChange(); });
+
+// ---------- processing ----------
+$("go").addEventListener("click", async () => {
+  player.pause();
+  const n = frameCount();
+  const body = {
+    ...fillOptions(points, drawFrame),
+    track: tracking(),
+    track_id: track && track.key === trackKey() && track.status !== "error" ? track.id : null,
+    frame_range: rangeIn === null && rangeOut === null ? null : [rangeIn ?? 0, rangeOut ?? n - 1],
+  };
+  statusOverride = null;
+  const r = await fetch("/api/process", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  if (!r.ok) return setStatus(await errText(r), "error");
+  jobId = (await r.json()).job_id; jobStartFrame = body.start_frame; jobProgress = 0; jobStage = null;
+  setBar(0); syncUI();
+  pollTimer = setInterval(poll, 500);
+});
+$("cancel").addEventListener("click", async () => { if (jobId) await fetch(`/api/cancel/${jobId}`, { method: "POST" }); });
+
+async function poll() {
+  let j;
+  try {
+    const r = await fetch(`/api/status/${jobId}`);
+    if (!r.ok) return finish("Lost track of the job.", "error");
+    j = await r.json();
+  } catch { return; }
+  jobProgress = j.progress || 0; jobStage = j; setBar(jobProgress);
+  if (j.status === "running") return syncUI();
+  if (j.status === "done") {
+    resultVideo.src = j.output + "?t=" + Date.now();
+    // Open the result on the frame the selection was drawn on so the change is immediately visible.
+    resultVideo.onloadedmetadata = () => { resultVideo.currentTime = (jobStartFrame + 0.5) / fps(); };
+    $("download").href = `/api/download/${jobId}`;
+    resultReady = true;
+    finish("Done! Check the result, then download.", "ok");
+    return setView("result");
+  }
+  if (j.status === "cancelled") return finish("Cancelled.");
+  finish(j.error || "Processing failed.", "error");
+}
+function finish(msg, kind) {
+  clearInterval(pollTimer); pollTimer = null; jobId = null;
+  setStatus(msg, kind);
+}
+
+// ---------- view & UI state ----------
+function setView(v) {
+  view = v;
+  document.querySelectorAll("[data-view]").forEach((b) => b.classList.toggle("active", b.dataset.view === v));
+  canvas.classList.toggle("hidden", v !== "editor" || !W);
+  resultVideo.classList.toggle("hidden", v !== "result");
+  if (v === "result") { player.pause(); $("modePill").classList.add("hidden"); }
+  else resultVideo.pause();
+  fit();
+  syncUI();
+}
+document.querySelectorAll("[data-view]").forEach((b) => b.addEventListener("click", () => setView(b.dataset.view)));
+
+function setStatus(msg, kind) { statusOverride = { msg, kind }; syncUI(); }
+
+function syncUI() {
+  const hasVideo = !!state.file, hasSel = points.length >= 3, uploaded = !!state.server, busy = !!jobId;
+  const editing = hasVideo && view === "editor";
+  $("empty").classList.toggle("hidden", hasVideo);
+  $("newVideo").classList.toggle("hidden", !hasVideo);
+  $("newVideo").disabled = busy;
+  $("viewTabs").classList.toggle("hidden", !resultReady);
+  $("toolbarTitle").classList.toggle("hidden", resultReady);
+  $("toolbarTitle").textContent = hasVideo ? state.file.name : "Preview";
+  $("editTools").classList.toggle("hidden", !editing);
+  $("previewTools").classList.toggle("hidden", !editing);
+  $("transport").classList.toggle("hidden", !editing);
+  $("clear").disabled = !points.length;
+  $("compare").disabled = !hasSel || !opt.preview;
+
+  const pill = $("uploadPill");
+  pill.classList.toggle("hidden", !(state.uploading || state.uploadError));
+  pill.classList.toggle("err", !!state.uploadError);
+  if (state.uploadError) pill.textContent = "Upload failed · Retry";
+  else if (state.uploading) {
+    const pct = Math.round(state.uploadProgress * 100);
+    pill.innerHTML = `<span class="spinner"></span>${pct >= 100 ? "Preparing video…" : `Uploading ${pct}%`}`;
+  }
+
+  $("go").disabled = !(uploaded && hasSel && !busy);
+  $("go").classList.toggle("hidden", busy);
+  $("cancel").classList.toggle("hidden", !busy);
+  $("progressWrap").classList.toggle("hidden", !busy);
+  $("download").classList.toggle("hidden", !resultReady || busy);
+
+  const done = { import: uploaded, select: hasSel || resultReady, export: resultReady };
+  let activeSet = false;
+  document.querySelectorAll("#steps li").forEach((li, i) => {
+    const d = done[li.dataset.step], active = !d && !activeSet;
+    if (active) activeSet = true;
+    li.classList.toggle("done", d); li.classList.toggle("active", active);
+    li.querySelector(".dot").textContent = d ? "✓" : String(i + 1);
+  });
+
+  let msg, kind = "";
+  const covered = trackDone() ? track.boxes.filter((b, i) => b && inRange(i)).length : 0;
+  if (busy) msg = jobStage ? `${stageText(jobStage)}` : "Starting…";
+  else if (statusOverride) ({ msg, kind } = statusOverride);
+  else if (!hasVideo) msg = "Import a video to begin.";
+  else if (state.uploadError) { msg = `Upload failed: ${state.uploadError}`; kind = "error"; }
+  else if (!hasSel) msg = state.uploading
+    ? "Draw around the object you want to remove — you can start while it uploads."
+    : "Draw around the object you want to remove. Play the video to check the removal live.";
+  else if (!uploaded) msg = `Selection ready. Waiting for the upload to finish (${Math.round(state.uploadProgress * 100)}%)…`;
+  else if (tracking() && track && track.status === "running") msg = `Following the object through the video — ${stageText(track)}`;
+  else if (tracking() && track && track.status === "error") { msg = `Tracking failed: ${track.error || "unknown error"}`; kind = "error"; }
+  else if (trackDone()) msg = `Found in ${covered} frames (${(covered / fps()).toFixed(1)}s), marked green on the timeline. Press play to check, use In/Out to trim, then remove.`;
+  else msg = "Ready. Press play to check the removal, then remove it.";
+  const st = $("status");
+  st.textContent = msg; st.className = `status ${kind}`;
+}
+
+// ---------- keyboard ----------
+window.addEventListener("keydown", (e) => {
+  if (e.metaKey || e.ctrlKey || e.altKey || view !== "editor" || !W) return;
+  const tag = e.target.tagName;
+  if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") return;
+  switch (e.key) {
+    case " ": if (tag === "BUTTON") return; e.preventDefault(); togglePlay(); break;
+    case "ArrowLeft": e.preventDefault(); stepFrames(e.shiftKey ? -Math.round(fps()) : -1); break;
+    case "ArrowRight": e.preventDefault(); stepFrames(e.shiftKey ? Math.round(fps()) : 1); break;
+    case "l": case "L": setTool("lasso"); break;
+    case "r": case "R": setTool("rect"); break;
+    case "Escape": clearSelection(); break;
+    case "i": case "I": setIn(); break;
+    case "o": case "O": setOut(); break;
+  }
+});
+
+// ---------- utils ----------
+function setBar(p) { $("bar").style.width = `${Math.round((p || 0) * 100)}%`; $("pct").textContent = `${Math.round((p || 0) * 100)}%`; }
+function paintRange(r) { const span = (+r.max - +r.min) || 1; r.style.setProperty("--p", `${((+r.value - +r.min) / span) * 100}%`); }
+function fmtTime(t) { t = Math.max(0, t || 0); const m = Math.floor(t / 60); return `${m}:${(t - m * 60).toFixed(2).padStart(5, "0")}`; }
+function loadImage(src) { return new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = src; }); }
+async function errText(r) { try { const j = await r.json(); return j.detail ? (typeof j.detail === "string" ? j.detail : JSON.stringify(j.detail)) : r.statusText; } catch { return r.statusText; } }
+
+document.querySelectorAll("input[type=range]").forEach(paintRange);
+syncUI();
+</script>
+</body>
+</html>
